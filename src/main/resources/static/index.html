@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat App</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: #ece5dd;
+        }
+
+        .chat-container {
+            max-width: 600px;
+            margin: auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
+
+        .header {
+            background: #075e54;
+            color: white;
+            padding: 15px;
+        }
+
+        .status {
+            font-size: 12px;
+            color: lightgreen;
+        }
+
+        .chat-box {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 10px;
+        }
+
+        .sent {
+            background: #dcf8c6;
+            align-self: flex-end;
+        }
+
+        .received {
+            background: #fff;
+            border: 1px solid #ddd;
+            align-self: flex-start;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 20px;
+            border: none;
+        }
+
+        button {
+            margin-left: 10px;
+            border: none;
+            background: #075e54;
+            color: white;
+            border-radius: 50%;
+            padding: 10px;
+        }
+
+        .login {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .typing {
+            font-size: 12px;
+            color: gray;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="chat-container">
+
+    <!-- Header -->
+    <div class="header">
+        <div id="chatWith">Chat</div>
+        <div id="status" class="status">Offline</div>
+    </div>
+
+    <!-- Login -->
+    <div id="loginDiv" class="login">
+        <input id="myId" placeholder="Enter Your Mobile"><br>
+        <input id="toId" placeholder="Enter Receiver Mobile"><br><br>
+        <button onclick="connect()">Start Chat</button>
+    </div>
+
+    <!-- Chat -->
+    <div id="chatBox" class="chat-box" style="display:none;"></div>
+    <div id="typing" class="typing"></div>
+
+    <!-- Input -->
+    <div class="input-area" id="inputArea" style="display:none;">
+        <input id="msg" placeholder="Type message..." oninput="typingEvent()">
+        <button onclick="send()">➤</button>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+
+<script>
+let stompClient;
+let myId;
+let receiver;
+
+function connect() {
+    myId = document.getElementById("myId").value;
+    receiver = document.getElementById("toId").value;
+
+    if (!myId || !receiver) {
+        alert("Enter both numbers");
+        return;
+    }
+
+    // UI switch
+    document.getElementById("loginDiv").style.display = "none";
+    document.getElementById("chatBox").style.display = "flex";
+    document.getElementById("inputArea").style.display = "flex";
+    document.getElementById("chatWith").innerText = receiver;
+
+    let socket = new SockJS('/chat?userId=' + myId);
+    stompClient = Stomp.over(socket);
+
+    stompClient.connect({}, function () {
+
+        // online status
+        document.getElementById("status").innerText = "🟢 Online";
+
+        stompClient.subscribe('/user/queue/messages', function (msg) {
+            let data = JSON.parse(msg.body);
+
+            if (data.type === "typing") {
+                document.getElementById("typing").innerText = "Typing...";
+                setTimeout(() => {
+                    document.getElementById("typing").innerText = "";
+                }, 1000);
+            } else {
+                showMessage(data.sender, data.content, false);
+            }
+        });
+
+    });
+}
+
+function send() {
+    let msg = document.getElementById("msg").value;
+
+    if (!msg.trim()) return;
+
+    stompClient.send("/app/private-chat", {}, JSON.stringify({
+        sender: myId,
+        receiver: receiver,
+        content: msg
+    }));
+
+    showMessage(myId, msg, true);
+    document.getElementById("msg").value = "";
+}
+
+function typingEvent() {
+    stompClient.send("/app/private-chat", {}, JSON.stringify({
+        sender: myId,
+        receiver: receiver,
+        type: "typing"
+    }));
+}
+
+function showMessage(sender, message, isMe) {
+    let chatBox = document.getElementById("chatBox");
+
+    let div = document.createElement("div");
+    div.classList.add("message");
+
+    if (isMe) {
+        div.classList.add("sent");
+    } else {
+        div.classList.add("received");
+    }
+
+    div.innerHTML = "<b>" + sender + "</b><br>" + message;
+
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+</script>
+
+</body>
+</html>
