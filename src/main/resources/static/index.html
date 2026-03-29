@@ -67,6 +67,7 @@
             padding: 10px;
             border-radius: 20px;
             border: none;
+            outline: none;
         }
 
         button {
@@ -76,6 +77,7 @@
             color: white;
             border-radius: 50%;
             padding: 10px;
+            cursor: pointer;
         }
 
         .login {
@@ -137,18 +139,18 @@ function connect() {
         return;
     }
 
-    // UI switch
     document.getElementById("loginDiv").style.display = "none";
     document.getElementById("chatBox").style.display = "flex";
     document.getElementById("inputArea").style.display = "flex";
     document.getElementById("chatWith").innerText = receiver;
 
-    let socket = new SockJS('/chat?userId=' + myId);
+    // ✅ IMPORTANT FIX (Production + Local)
+    let socket = new SockJS(window.location.origin + '/chat?userId=' + myId);
+
     stompClient = Stomp.over(socket);
 
     stompClient.connect({}, function () {
 
-        // online status
         document.getElementById("status").innerText = "🟢 Online";
 
         stompClient.subscribe('/user/queue/messages', function (msg) {
